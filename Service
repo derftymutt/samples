@@ -1,0 +1,230 @@
+using Web.Domain;
+using Web.Models.Requests;
+using Web.Services.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Data.SqlClient;
+using System.Linq;
+using System.Web;
+
+namespace Web.Services
+{
+    public class FindsService : BaseService, IFindsService
+
+    {
+        private IUserService _userService;
+
+        private IMessageService _messageService;
+
+        public FindsService(IUserService userService, IMessageService messageService)
+        {
+            _userService = userService;
+            _messageService = messageService;
+        }
+
+        public static Find MapFind(IDataReader reader)
+        {
+            Find currentFind = new Find();
+            int startingIndex = 0;
+
+            currentFind.Id = reader.GetInt32(startingIndex++);
+            currentFind.ImageUrl = reader.GetString(startingIndex++);
+            currentFind.Title = reader.GetString(startingIndex++);
+            currentFind.Description = reader.GetString(startingIndex++);
+            currentFind.Price = reader.GetDecimal(startingIndex++);
+            currentFind.PurchaseUrl = reader.GetString(startingIndex++);
+            currentFind.ResponseId = reader.GetInt32(startingIndex++);
+            currentFind.DateCreated = reader.GetDateTime(startingIndex++);
+            currentFind.DateModified = reader.GetDateTime(startingIndex++);
+            currentFind.UserId = reader.GetString(startingIndex++);
+            currentFind.IsDeleted = reader.GetBoolean(startingIndex++);
+
+            return currentFind;
+        }
+
+        public int CreateFind(FindCreateRequest newFind)
+
+        {
+            int result = -1;
+            DataProvider.ExecuteNonQuery(GetConnection, "dbo.Finds_Insert",
+            inputParamMapper: delegate (SqlParameterCollection parameters)
+            {
+                parameters.AddWithValue("@ImageUrl", newFind.ImageUrl);
+                parameters.AddWithValue("@Title", newFind.Title);
+
+                if (newFind.Description == null)
+                {
+                    parameters.AddWithValue("@Description", DBNull.Value);
+                }
+                else
+                {
+                    parameters.AddWithValue("@Description", newFind.Description);
+                }
+
+                parameters.AddWithValue("@Price", newFind.Price);
+                parameters.AddWithValue("@PurchaseUrl", newFind.PurchaseUrl);
+                parameters.AddWithValue("@ResponseId", newFind.ResponseId);
+                parameters.AddWithValue("@UserId", _userService.GetCurrentUserId());
+
+                    parameters.Add(new SqlParameter
+                {
+                    DbType = DbType.Int32,
+                    Direction = ParameterDirection.Output,
+                    ParameterName = "@Id"
+                });
+            },
+            returnParameters: delegate (SqlParameterCollection parameters)
+            {
+                result = int.Parse(parameters["@Id"].Value.ToString());
+            }
+            );
+
+            MessageCreateRequest messageModel = new MessageCreateRequest();
+            Guid token = Guid.NewGuid();
+
+            messageModel.ToAddress = "ZanyShoe@mailinator.com";
+            messageModel.Subject = "Found!t New Finds Confirmation";
+
+            _messageService.NewFindNotification(messageModel, token);
+
+            return result;
+        }
+
+        public int UpdateFind(FindUpdateRequest updatedFindValue)
+        {
+            int result = -1;
+            DataProvider.ExecuteNonQuery(GetConnection, "dbo.Finds_Update",
+                inputParamMapper: delegate (SqlParameterCollection parameters)
+                {
+                    parameters.AddWithValue("@ImageUrl", updatedFindValue.ImageUrl);
+                    parameters.AddWithValue("@Title", updatedFindValue.Title);
+
+                    if (updatedFindValue.Description == null)
+                    {
+                        parameters.AddWithValue("@Description", DBNull.Value);
+                    }
+                    else
+                    {
+                        parameters.AddWithValue("@Description", updatedFindValue.Description);
+                    }
+                    parameters.AddWithValue("@Price", updatedFindValue.Price);
+                    parameters.AddWithValue("@PurchaseUrl", updatedFindValue.PurchaseUrl);
+                    parameters.AddWithValue("@ResponseId", updatedFindValue.ResponseId);
+                    parameters.AddWithValue("@Id", updatedFindValue.Id);
+
+                },
+                returnParameters: delegate (SqlParameterCollection parameters)
+                {
+                    result = int.Parse(parameters["@Id"].Value.ToString());
+                }
+            );
+            return result;
+        }
+
+        public void ToggleDeleteFind(FindDeleteRequest existFind)
+        {
+            DataProvider.ExecuteNonQuery(GetConnection, "[dbo].[Finds_UpdateDelete]",
+                  inputParamMapper: delegate (SqlParameterCollection parameters)
+                  {
+                      parameters.AddWithValue("@Id", existFind.Id);  //id assigned
+                      parameters.AddWithValue("@Toggle", existFind.Toggle);
+                  });
+        }
+
+        public List<Find> GetAllFinds()
+        {
+            List<Find> list = null;
+
+            DataProvider.ExecuteCmd(GetConnection, "dbo.Finds_SelectAll"
+              , inputParamMapper: delegate (SqlParameterCollection paramCollection)
+              {
+
+              }
+               , map: delegate (IDataReader reader, short set)
+               {
+                   Find allFinds = MapFind(reader);
+
+                   if (list == null)
+                   {
+                       list = new List<Find>();
+                   }
+
+                   list.Add(allFinds);
+               }
+               );
+            return list;
+        }
+
+        public int DeleteFind(int id)
+        {
+            int result = -1;
+            DataProvider.ExecuteNonQuery(GetConnection, "dbo.Finds_SoftDeleteById",
+                inputParamMapper: delegate (SqlParameterCollection parameters)
+                {
+                    parameters.AddWithValue("@Id", id);
+                },
+
+                returnParameters: delegate (SqlParameterCollection parameters)
+                {
+                    result = int.Parse(parameters["@Id"].Value.ToString());
+                }
+            );
+            return result;
+        }
+
+        public Find GetFindById(int id)
+        {
+            Find FindById = null;
+            DataProvider.ExecuteCmd(GetConnection, "dbo.Finds_SelectById"
+              , inputParamMapper: delegate (SqlParameterCollection parameters)
+              {
+                  parameters.AddWithValue("@Id", id);
+              },
+              map: delegate (IDataReader reader, short set)
+              {
+                  FindById = MapFind(reader);
+              }
+            );
+
+            return FindById;
+
+        }
+
+        public PagedList<Find> GetFindsByPageIndex(int pageIndex, int itemsPerPage)
+        {
+            PagedList<Find> pagedList = null;
+            List<Find> findsList = null;
+
+            DataProvider.ExecuteCmd(
+                GetConnection,
+                "[dbo].[Finds_SelectByIds_SelectForAdmin]",
+                inputParamMapper: delegate (SqlParameterCollection parameters)
+                {
+                    parameters.AddWithValue("@PageIndex", pageIndex);
+                    parameters.AddWithValue("@NumberOfRecords", itemsPerPage);
+                },
+                map: delegate (IDataReader reader, short set)
+                {
+                    int totalCount = 0;
+
+                    Find pageFinds = MapFind(reader);
+                    totalCount = reader.GetSafeInt32(11);
+
+                    if (findsList == null)
+                    {
+                        findsList = new List<Find>();
+                    }
+                    findsList.Add(pageFinds);
+
+                    if (pagedList == null)
+                    {
+                        pagedList = new PagedList<Find>(findsList, pageIndex, itemsPerPage, totalCount);
+                    }
+                }
+                );
+
+            return pagedList;
+        }
+    }
+}
