@@ -1,0 +1,103 @@
+using Sabio.Web.Models.Requests;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Web.Http;
+using Web.Services;
+using Web.Models.Responses;
+using Web.Domain;
+using Web.Services.Interfaces;
+
+namespace Web.Controllers.Api
+{
+    [RoutePrefix("api/admin/finds")]
+    public class FindsApiController : BaseApiController
+    {
+        //interface constructor, _camelCase is a convention for private member variables
+        private IFindsService _findsService;
+
+        public FindsApiController(IFindsService findsService)
+        {
+            _findsService = findsService;
+        }
+
+        [Route, HttpPost]
+        public HttpResponseMessage Create(FindCreateRequest model)
+        {
+            if (!IsValidRequest(model))
+            {
+                return GetErrorResponse(model);
+            }
+
+            int id = _findsService.CreateFind(model);
+            ItemResponse<int> responseData = new ItemResponse<int>();
+            responseData.Item = id;
+
+            return Request.CreateResponse(HttpStatusCode.OK, responseData);
+        }
+
+        [Route("{id:INT}"), HttpPut]
+        public HttpResponseMessage Update(int id, FindUpdateRequest model)
+        {
+            if (!IsValidRequest(model))
+            {
+                return GetErrorResponse(model);
+            }
+
+            _findsService.UpdateFind(model);
+            SuccessResponse responseData = new SuccessResponse();
+
+            return Request.CreateResponse(HttpStatusCode.OK, responseData);
+        }
+
+        [Route("{id:INT}/toggle"), HttpPost]
+        public HttpResponseMessage ToggleDelete(FindDeleteRequest model)
+        {
+            if (!IsValidRequest(model))
+            {
+                return GetErrorResponse(model);
+            }
+
+            _findsService.ToggleDeleteFind(model);
+            SuccessResponse responseData = new SuccessResponse();
+
+            return Request.CreateResponse(HttpStatusCode.OK, responseData);
+        }
+
+
+        [Route, HttpGet]
+        public HttpResponseMessage GetAll()
+        {
+            ItemsResponse<Domain.Find> responseData = new ItemsResponse<Domain.Find>();
+            responseData.Items = _findsService.GetAllFinds();
+            return Request.CreateResponse(HttpStatusCode.OK, responseData);
+        }
+
+        [Route("{id:INT}"), HttpDelete]
+        public HttpResponseMessage DeleteById(int id)
+        {
+            _findsService.DeleteFind(id);
+            SuccessResponse responseData = new SuccessResponse();
+
+            return Request.CreateResponse(HttpStatusCode.OK, responseData);
+        }
+
+        [Route("{id:INT}"), HttpGet]
+        public HttpResponseMessage GetById(int id)
+        {
+            ItemResponse<Find> responseData = new ItemResponse<Find>();
+            responseData.Item = _findsService.GetFindById(id);
+            return Request.CreateResponse(HttpStatusCode.OK, responseData);
+        }
+        [Route("{pageIndex:INT}/{itemsPerPage:INT}"), HttpGet]
+        public HttpResponseMessage GetFindsByPageIndexAdmin(int pageIndex, int itemsPerPage)
+        {
+            ItemResponse<PagedList<Find>> responseData = new ItemResponse<PagedList<Find>>();
+
+            responseData.Item = _findsService.GetFindsByPageIndex(pageIndex, itemsPerPage);
+            return Request.CreateResponse(HttpStatusCode.OK, responseData);
+        }
+    }
+    }
