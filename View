@@ -1,0 +1,333 @@
+@using Web.Enums
+
+@{
+    ViewBag.Title = "Index";
+    Layout = "~/Views/Shared/_LayoutAdmin.cshtml";
+}
+
+@section styles {
+
+}
+<div class="row wrapper border-bottom white-bg page-heading">
+    <div class="col-sm-4">
+        <h2>Profile Store Options</h2>
+        <ol class="breadcrumb">
+            <li>
+                <a href="index.html">Home</a>
+            </li>
+            <li>
+                <a href="index.html">Admin</a>
+            </li>
+            <li class="active">
+                <strong>Breadcrumb</strong>
+            </li>
+        </ol>
+    </div>
+    <div class="col-sm-8">
+        <div class="title-action">
+            <a href="/admin/profile-store-options/create" class="btn btn-primary">Add stores</a>
+        </div>
+    </div>
+</div>
+
+<div class="wrapper wrapper-content animated clearfix fadeInRightBig">
+    <div class="row" ng-controller="listController as list">
+        <div class="col-lg-12">
+            <div class="ibox float-e-margins">
+                <div class="ibox-title">
+                    <h5>Basic Table</h5>
+                    <div class="ibox-tools">
+                        <a class="collapse-link">
+                            <i class="fa fa-chevron-up"></i>
+                        </a>
+                        <a class="dropdown-toggle" data-toggle="dropdown" href="#">
+                            <i class="fa fa-wrench"></i>
+                        </a>
+                        <ul class="dropdown-menu dropdown-user">
+                            <li>
+                                <a href="#">Config option 1</a>
+                            </li>
+                            <li>
+                                <a href="#">Config option 2</a>
+                            </li>
+                        </ul>
+                        <a class="close-link">
+                            <i class="fa fa-times"></i>
+                        </a>
+                    </div>
+                </div>
+                <!--end top bar-->
+                
+                <div class="ibox-content">
+                    <div class="row">
+                        <div class="pull-left" id="genderFilters">
+                            <span>
+                                Filter by gender? <input type="checkbox" ng-model="list.genderCheckboxValue" ng-change="list.onGenderCheckboxClick()" />
+                            </span>
+                            <div class="btn-group" ng-show="list.genderCheckboxValue">
+                                <button data-toggle="dropdown" class="btn btn-default dropdown-toggle">{{list.genderFilterSelectionDisplayName}} <span class="caret"></span></button>
+                                <ul class="dropdown-menu" >
+                                    <li ng-repeat="(enumName, enumData) in list.indexDataService.genderKindEnum"
+                                        ng-model="list.currentGenderTypeSelected">
+                                        <a ng-click="list.genderClick(enumData)">{{enumData.displayName}}</a></li>                 
+                                </ul>
+                            </div>
+                            <i ng-show="list.currentGenderTypeSelected == 0" class="fa fa-transgender genderIcon"></i>
+                            <i ng-show="list.currentGenderTypeSelected == 1" class="fa fa-mars" id="maleGenderIcon"></i>
+                            <i ng-show="list.currentGenderTypeSelected == 2" class="fa fa-venus genderIcon"></i>
+                        </div>
+                        <div id="undeleteCheckbox">
+                            <span class="pull-right">
+                                <input type="checkbox" ng-model="list.deleteCheckboxValue" ng-change="list.onDeleteCheckboxClick()" /> Show deleted
+                            </span>
+                        </div>
+
+                    </div>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Id</th>
+                                <th>Store name</th>
+                                <th>Gender</th>
+                                <th>Edit</th>
+                                <th>Delete</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr ng-repeat="store in list.stores | filter : list.genderSelectedInObjectForFilter | filter : list.checkboxFilterObject"
+                                ng-class="{'undeleted': store.isDeleted == 1}">
+                                <td class="greyOut">{{store.id}}</td>
+                                <td class="greyOut">{{store.name}}</td>
+                                <td class="greyOut">{{store.genderName.displayName}}</td>
+                                <td>
+                                    <a class="btn btn-warning btn-sm"
+                                       ng-href="/admin/profile-store-options/{{store.id}}/edit">
+                                        Edit
+                                    </a>
+                                </td>
+                                <td>
+                                    <button class="btn btn-danger btn-sm"
+                                            ng-click="list.softDelete(store)"
+                                            ng-show="store.isDeleted == 0">
+                                        Delete
+                                    </button>
+                                    <button class="btn btn-gray btn-sm"
+                                            ng-click="list.softDelete(store)"
+                                            ng-hide="store.isDeleted == 0">
+                                        undelete
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@section scripts {
+    <script src="~/Scripts/sabio/services/services.profileStoreOptions.js"></script>
+    <script src="~/Scripts/sabio/services/admin/services.admin.notifications.js"></script>
+
+    <script>
+        (function(){
+            "use strict";
+
+            angular.module(APPNAME).factory("indexDataService", indexDataService);
+
+            indexDataService.$inject = ['$baseService'];
+
+            function indexDataService ($baseService){
+
+                var indexDataServiceObject = { genderKindEnum : @typeof(GenderKind).EnumToJson(1),
+                    genderKindEnumByValue : @typeof(GenderKind).EnumToJsonByValue() };
+
+                var newIndexDataService = $baseService.merge(true, {}, indexDataServiceObject, $baseService);
+
+                return newIndexDataService;
+            }
+        }());
+    </script>
+
+    <script type="text/javascript">
+
+        (function () {
+            "use strict";
+
+            angular.module(APPNAME)
+            .controller("listController", ListController);
+
+            ListController.$inject = ['$scope', '$baseController', 'profileStoreOptionsService', 'indexDataService','adminNotifications'];
+
+            function ListController(
+                $scope,
+                $baseController,
+                profileStoreOptionsService,
+                indexDataService,
+                adminNotifications) {
+
+                var vm = this;
+
+                $baseController.merge(vm, $baseController);
+
+                vm.profileStoreOptionsService = profileStoreOptionsService;
+                vm.indexDataService = indexDataService;
+                vm.adminNotifications = adminNotifications;
+
+                vm.notify = vm.profileStoreOptionsService.getNotifier($scope);
+
+                //add for dropdown "Both" <option> in ng-options 
+                vm.indexDataService.genderKindEnum.Both  = {
+                    value: 0,
+                    displayName: "Both"
+                };
+
+                vm.$log.debug(vm.indexDataService.genderKindEnum);
+
+                //variables - functions 
+                vm.storeToBeDeleted = null;
+                vm.storeToBeUndeleted = null;
+                vm.genderSelectedInObjectForFilter = {};
+                vm.softDelete = _softDelete;
+                vm.onDeleteCheckboxClick = _onDeleteCheckboxClick;
+                vm.onGenderCheckboxClick = _onGenderCheckboxClick;
+                vm.genderClick = _genderClick;
+                vm.checkboxFilterObject = {isDeleted : false};
+                vm.genderFilterSelectionDisplayName = "gender filter";
+
+                render();
+                function render() {             
+                    vm.profileStoreOptionsService.getAll(_onGetAllSuccess, _onGetAllError);
+                }
+
+                function _genderClick(selection){
+                    vm.genderFilterSelectionDisplayName = selection.displayName;
+                    vm.currentGenderTypeSelected = selection.value;
+                    vm.genderSelectedInObjectForFilter = {genderType : vm.currentGenderTypeSelected};
+                }
+
+                //ng-change of show undeleted checkbox, links to filter in stores table
+                function _onDeleteCheckboxClick(){
+                    if (vm.deleteCheckboxValue) {
+                        vm.checkboxFilterObject = {};
+                    } else {
+                        vm.checkboxFilterObject = {isDeleted : false};
+                    }
+                }
+
+                // on delete button in stores table
+                function _softDelete(store){
+                    if (store.isDeleted == 0) {
+                        vm.storeToBeDeleted = store;
+                        vm.adminNotifications.prompt("are you sure you want to delete the store?", _onDeleteConfirm);        
+                    } else {
+                        vm.storeToBeUndeleted = store;
+                        vm.profileStoreOptionsService.undelete(store.id, _onUndeleteSuccess, _onUndeleteError);
+                    }
+                }
+
+                function _onDeleteConfirm(){
+                    _deleteAjaxCall();                   
+                }
+
+                function _deleteAjaxCall(){             
+                    vm.profileStoreOptionsService.delete(vm.storeToBeDeleted.id, _onDeleteSuccess, _onDeleteError);
+                }
+
+                //filter by gender checkbox
+                function _onGenderCheckboxClick (){
+                    //on UNCHECK
+                    if (!vm.genderCheckboxValue) {
+                        vm.genderSelectedInObjectForFilter = {};
+                        vm.currentGenderTypeSelected = {};
+                        vm.genderFilterSelectionDisplayName = "gender filter";
+                    } 
+                }
+
+                //--------- ajax success and error functions -------
+
+                // GET ALL
+                function _onGetAllSuccess(data) {
+                    vm.notify(function(){
+                        vm.$log.debug(vm.stores);
+                        _syncEnumToStores(data.items);                        
+                        _notifyForGetAllSuccess();
+                    })
+                }
+
+                function _syncEnumToStores(stores){
+                    vm.stores = stores;
+                    for (var i = 0; i < vm.stores.length; i++){
+                        var currentItem = vm.stores[i];
+                        if (currentItem.genderType == 1 || currentItem.genderType == 2){
+                            currentItem.genderName = vm.indexDataService.genderKindEnumByValue[currentItem.genderType];
+                        } else {
+                            currentItem.genderName = {name: "Both", displayName: "Both"};
+                        }
+                    };
+                }
+
+                function _notifyForGetAllSuccess(){
+                    vm.adminNotifications.success("Store list is loaded", "Success!");
+                }
+
+
+                function _onGetAllError() {
+                    vm.$log.debug("Error loading the stores");
+                    _notifyForGetAllError();
+                }
+
+                function _notifyForGetAllError(){
+                    vm.adminNotifications.error("There was an error loading the stores", "Uh oh");
+                }
+
+                //DELETE
+                function _onDeleteSuccess(data){
+                    vm.notify(function(){
+                        vm.$log.debug(data);
+                        vm.$log.debug("delete success");
+                        vm.storeToBeDeleted.isDeleted = 1;
+                        vm.adminNotifications.success("Your store was deleted", "Success!");
+                    })
+                }
+
+                function _onDeleteError(){
+                    vm.$log.debug("Delete error");
+                    vm.adminNotifications.error("There was an error deleting the store", "Uh oh");
+                }
+
+                //UNDELETE
+                function _onUndeleteSuccess(data){
+                    vm.notify(function(){
+                        vm.$log.debug(data);
+                        vm.$log.debug("undelete success");
+                        _notfiyForUndeleteSuccess();                     
+                    })
+                }
+
+                function _notfiyForUndeleteSuccess(){
+                    vm.storeToBeUndeleted.isDeleted = 0;
+                    sabio.services.admin.notifications.success("Your store was undeleted", "Success!");
+                }
+
+                function _onUndeleteError(){
+                    vm.$log.debug("undelete error");
+                    _notifyForUndeleteError();
+                }
+
+                function _notifyForUndeleteError(){
+                    sabio.services.admin.notifications.error("There was an error undeleting", "Uh oh");
+                }
+
+            //END CONTROLLER
+            }
+        }
+        )();
+
+    </script>
+
+
+
+}
